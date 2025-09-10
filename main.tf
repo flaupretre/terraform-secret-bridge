@@ -1,4 +1,4 @@
-# Format is : //aws-secret:<name>:<key>//
+# Format is : //@secret/<store>:<name>[:<key>]//
 #
 
 locals {

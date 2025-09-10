@@ -21,9 +21,9 @@ Note that every secret reference must be surrounded by space characters or line 
 if the reference is not at the beginning of a line, it must be preceded with a space character and, if
 it is not at the end of a line, it must be followed by a space character.
 
-## Use case - May I help you ?
+## Use case
 
-Let's consider a very classical Terraform/Terragrunt configuration
+Let's consider a typical Terraform/Terragrunt configuration
 where a git-managed file tree defines a platform, each component associated with a unique subdirectory.
 For instance, everything related to the 'dev' environment of the 'myapp' application may be stored
 in the 'myapp/dev' directory.
@@ -79,14 +79,14 @@ So, let's have a look to our new configuration file :
 
     ...
     newrelic:
-      license: @secret/aws:cfg-myapp-newrelic:license@
+      license: //@secret/aws:cfg-myapp-newrelic:license//
       collector: "collector.eu01.nr-data.net"
     
     sentry:
-      dsn: @secret/aws:cfg-myapp-sentry:dsn@
+      dsn: //@secret/aws:cfg-myapp-sentry:dsn//
     ...
 
-You can see that sensitive values have disappeared, replaced by references delimited by '@' characters.
+You can see that sensitive values were replaced by references delimited by '//' characters.
 Each reference uniquely identifies the location where the secret value is actually stored.
 
 About flexibility, note that we just replace what we want. In our example, 'newrelic.collector' is
@@ -106,7 +106,7 @@ Here is an example of some terraform code to run the expansion :
     module cfg {
       source = "git::git@github.com:flaupretre/terraform-secret-bridge.git?ref=v1.0.0"
     
-      cfg = var.cfg
+      input = var.cfg
     }
     
 In this case, the expanded string will be available as 'module.cfg.result'.
@@ -135,9 +135,7 @@ responsibility to protect your terraform state, local or remote, from unauthoriz
 
 This is the only store we are supporting today.
 
-AWS secrets generally contain several key/value pairs. Actually, these pairs form a map,
-stored as a JSON string. You can decide not to use multiple keys in your secret. In this case, don't
-set the ':key' part in your reference and you will retrieve your 'PlainText' secret string as-is. 
+AWS secrets often contain several key/value pairs, encoded as a JSON map. If the secret you're retrieving does not contain such a map, just don't set the '[:\<key\>]'part in your reference and you will retrieve your 'PlainText' secret string as-is. 
 
 ## Using a prefix
 
@@ -145,10 +143,10 @@ You may set an optional prefix string when calling the module. This prefix is ad
 of every secret name before retrieving it from the secret stores.
 
 This may allow to restrict the set of secrets that may potentially be used in a configuration.
-A prefix like 'cfg-myapp-' may be a good way to ensure that my application can
-only access a reserved set of secrets defined for itself.
+For instance, a prefix in the form 'cfg-myapp-' may be a good way to ensure that the 'myapp' application can
+only access a restricted set of secrets defined for itself.
 
-Using this prefix, the module call we saw before would look like :
+Then, our example would become :
 
     module cfg {
       source = "git::git@github.com:flaupretre/terraform-secret-bridge.git?ref=v1.0.0"
@@ -157,15 +155,15 @@ Using this prefix, the module call we saw before would look like :
       cfg = var.cfg
     }
 
-and the configuration would become :
+and :
 
     ...
     newrelic:
-      license: //aws-secret:newrelic:license//
+      license: //@secret/aws:newrelic:license//
       collector: "collector.eu01.nr-data.net"
     
     sentry:
-      dsn: //aws-secret:sentry:dsn//
+      dsn: //@secret/aws:sentry:dsn//
      ...
 
 ## Errors
@@ -181,7 +179,7 @@ When the secrets exists but the key you're referencing does not, you receive a m
     │   39:       file("***ERROR: '${k}' secret key not found ***") : null
     │
     │ Invalid value for "path" parameter: no file exists at "***ERROR:
-    │ 'aws:sonarcloud:taken' secret key not found  (prefix = 'cfg-myapp-') ***"; this function works
+    │ 'aws:cfg-myapp-sonarcloud:taken' secret key not found  (prefix = 'cfg-myapp-') ***"; this function works
     │ only with files that are distributed as part of the configuration source
     │ code, so if this file will be created by a resource in this configuration
     │ you must instead obtain this result from an attribute of that resource.
@@ -189,14 +187,14 @@ When the secrets exists but the key you're referencing does not, you receive a m
     ERRO[0020] 1 error occurred:
     * exit status 1
 
-Here, the interesting part is 'aws:hd-sonarcloud:tioken' secret key not found' as it gives
+Here, the interesting part is 'aws:sonarcloud:taken' secret key not found' as it gives
 the names of the secret store, the secret and the non-existing key.
 
 From the message above, we can determine that :
 
-- we are considering secrets stored in AWS Secrets Manager
-- The secret name is 'cfg-myapp-sonarcloud' (apply the prefix)
-- we try to get a key named 'taken' and it seems it does not exist
+- we are considering secrets stored in AWS Secrets Manager,
+- the secret name is 'cfg-myapp-sonarcloud',
+- we try to get a key named 'taken' and it does not exist.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
